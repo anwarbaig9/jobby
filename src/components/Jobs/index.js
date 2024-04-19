@@ -137,6 +137,7 @@ class Jobs extends Component {
           type="button"
           data-testid="searchButton"
           onClick={() => this.getJobs()}
+          aria-label="Search"
         >
           <BsSearch className="search-icon" />
         </button>
