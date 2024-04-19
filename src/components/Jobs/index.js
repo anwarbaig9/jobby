@@ -1,14 +1,14 @@
 import {Component} from 'react'
-import Cookies from 'js-cookie'
-import {BsSearch} from 'react-icons/bs'
 import Loader from 'react-loader-spinner'
+import Cookies from 'js-cookie'
+import {BsFillBriefcaseFill, BsStarFill} from 'react-icons/bs'
+import {BiLinkExternal} from 'react-icons/bi'
+import {MdLocationOn} from 'react-icons/md'
 
 import Header from '../Header'
-import ProfileDetails from '../ProfileDetails'
-import FiltersGroup from '../FiltersGroup'
-import JobCard from '../JobCard'
-
-import 'react-loader-spinner/dist/loader/css/react-spinner-loader.css'
+// eslint-disable-next-line import/extensions
+import SimilarJobItem from '../SimilarJobItem'
+import SkillsCard from '../SkillsCard'
 import './index.css'
 
 const apiStatusConstants = {
@@ -18,227 +18,216 @@ const apiStatusConstants = {
   inProgress: 'IN_PROGRESS',
 }
 
-class Jobs extends Component {
+class JobItemDetails extends Component {
   state = {
-    profileDetails: {},
-    profileApiStatus: apiStatusConstants.initial,
-    jobsList: [],
-    jobsApiStatus: apiStatusConstants.initial,
-    searchInput: '',
-    activeSalaryRangeId: '',
-    employmentTypesChecked: [],
+    jobData: {},
+    similarJobsData: [],
+    apiStatus: apiStatusConstants.initial,
   }
 
   componentDidMount() {
-    this.getProfileDetails()
-    this.getJobs()
+    this.getJobData()
   }
 
-  updateEmploymentTypesChecked = typeId => {
-    const {employmentTypesChecked} = this.state
-    let updatedList = employmentTypesChecked
-    if (employmentTypesChecked.includes(typeId)) {
-      updatedList = employmentTypesChecked.filter(
-        eachType => eachType !== typeId,
+  getFormattedSimilarData = data => ({
+    companyLogoUrl: data.company_logo_url,
+    employmentType: data.employment_type,
+    id: data.id,
+    jobDescription: data.job_description,
+    location: data.location,
+    rating: data.rating,
+    title: data.title,
+  })
+
+  getFormattedData = data => ({
+    companyLogoUrl: data.company_logo_url,
+    companyWebsiteUrl: data.company_website_url,
+    employmentType: data.employment_type,
+    id: data.id,
+    jobDescription: data.job_description,
+    lifeAtCompany: {
+      description: data.life_at_company.description,
+      imageUrl: data.life_at_company.image_url,
+    },
+    location: data.location,
+    rating: data.rating,
+    title: data.title,
+    packagePerAnnum: data.package_per_annum,
+    skills: data.skills.map(eachSkill => ({
+      imageUrl: eachSkill.image_url,
+      name: eachSkill.name,
+    })),
+  })
+
+  getJobData = async () => {
+    this.setState({apiStatus: apiStatusConstants.inProgress})
+    const {match} = this.props
+    const {params} = match
+    const {id} = params
+
+    const jwtToken = Cookies.get('jwt_token')
+    const url = `https://apis.ccbp.in/jobs/${id}`
+    const options = {
+      headers: {
+        Authorization: `Bearer ${jwtToken}`,
+      },
+      method: 'GET',
+    }
+
+    const response = await fetch(url, options)
+    if (response.ok === true) {
+      const data = await response.json()
+      console.log(data)
+      const updatedData = this.getFormattedData(data.job_details)
+      const updatedSimilarJobsData = data.similar_jobs.map(eachSimilarJob =>
+        this.getFormattedSimilarData(eachSimilarJob),
       )
-    } else {
-      updatedList = [...updatedList, typeId]
-    }
-
-    this.setState({employmentTypesChecked: updatedList}, this.getJobs)
-  }
-
-  updateSalaryRangeId = activeSalaryRangeId =>
-    this.setState({activeSalaryRangeId}, this.getJobs)
-
-  getJobs = async () => {
-    this.setState({jobsApiStatus: apiStatusConstants.inProgress})
-
-    const {
-      activeSalaryRangeId,
-      employmentTypesChecked,
-      searchInput,
-    } = this.state
-    const employTypes = employmentTypesChecked.join(',')
-    const jwtToken = Cookies.get('jwt_token')
-    const apiUrl = `https://apis.ccbp.in/jobs?employment_type=${employTypes}&minimum_package=${activeSalaryRangeId}&search=${searchInput}`
-
-    const options = {
-      headers: {
-        Authorization: `Bearer ${jwtToken}`,
-      },
-      method: 'GET',
-    }
-    const response = await fetch(apiUrl, options)
-    const data = await response.json()
-    if (response.ok === true) {
-      const {jobs} = data
-      const updatedData = jobs.map(eachJob => ({
-        companyLogoUrl: eachJob.company_logo_url,
-        employmentType: eachJob.employment_type,
-        id: eachJob.id,
-        jobDescription: eachJob.job_description,
-        location: eachJob.location,
-        packagePerAnnum: eachJob.package_per_annum,
-        rating: eachJob.rating,
-        title: eachJob.title,
-      }))
+      console.log(updatedData)
+      console.log(updatedSimilarJobsData)
       this.setState({
-        jobsList: updatedData,
-        jobsApiStatus: apiStatusConstants.success,
+        jobData: updatedData,
+        similarJobsData: updatedSimilarJobsData,
+        apiStatus: apiStatusConstants.success,
       })
     } else {
-      this.setState({jobsApiStatus: apiStatusConstants.failure})
+      this.setState({apiStatus: apiStatusConstants.failure})
     }
   }
 
-  getProfileDetails = async () => {
-    this.setState({profileApiStatus: apiStatusConstants.inProgress})
-
-    const jwtToken = Cookies.get('jwt_token')
-    const apiUrl = 'https://apis.ccbp.in/profile'
-    const options = {
-      headers: {
-        Authorization: `Bearer ${jwtToken}`,
-      },
-      method: 'GET',
-    }
-    const response = await fetch(apiUrl, options)
-    const data = await response.json()
-    if (response.ok === true) {
-      const profileDetails = data.profile_details
-      const updatedData = {
-        name: profileDetails.name,
-        profileImageUrl: profileDetails.profile_image_url,
-        shortBio: profileDetails.short_bio,
-      }
-      this.setState({
-        profileDetails: updatedData,
-        profileApiStatus: apiStatusConstants.success,
-      })
-    } else {
-      this.setState({profileApiStatus: apiStatusConstants.failure})
-    }
-  }
-
-  renderSearchBar = searchBarID => {
-    const {searchInput} = this.state
+  renderFailureView = () => {
+    const {match} = this.props
+    const {params} = match
+    // eslint-disable-next-line
+    const {id} = params
     return (
-      <div className="search-bar" id={searchBarID}>
-        <input
-          className="search-input"
-          type="search"
-          placeholder="Search"
-          value={searchInput}
-          onChange={e => this.setState({searchInput: e.target.value})}
+      <div className="job-item-error-view-container">
+        <img
+          src="https://assets.ccbp.in/frontend/react-js/failure-img.png"
+          alt="failure view"
+          className="job-item-failure-img"
         />
+        <h1 className="job-item-failure-heading-text">
+          Oops! Something Went Wrong
+        </h1>
+        <p className="job-item-failure-description">
+          We cannot seem to find the page you are looking for
+        </p>
+
         <button
-          className="search-button"
           type="button"
-          data-testid="searchButton"
-          onClick={() => this.getJobs()}
-          aria-label="Search"
+          id="button"
+          className="job-item-failure-button"
+          onClick={this.getJobData}
         >
-          <BsSearch className="search-icon" />
+          Retry
         </button>
       </div>
     )
   }
 
-  renderSideBar = () => {
-    const {
-      profileDetails,
-      profileApiStatus,
-      activeSalaryRangeId,
-      employmentTypesChecked,
-    } = this.state
-    return (
-      <div className="side-bar">
-        {this.renderSearchBar('smallSearchBar')}
-        <ProfileDetails
-          profileDetails={profileDetails}
-          profileApiStatus={profileApiStatus}
-          getProfileDetails={this.getProfileDetails}
-        />
-        <hr className="separator" />
-        <FiltersGroup
-          updateSalaryRangeId={this.updateSalaryRangeId}
-          activeSalaryRangeId={activeSalaryRangeId}
-          updateEmploymentTypesChecked={this.updateEmploymentTypesChecked}
-          employmentTypesChecked={employmentTypesChecked}
-        />
-      </div>
-    )
-  }
-
-  renderNoJobsView = () => (
-    <div className="no-jobs-container">
-      <img
-        src="https://assets.ccbp.in/frontend/react-js/no-jobs-img.png"
-        alt="no jobs"
-        className="no-jobs-image"
-      />
-      <h1 className="no-jobs-heading">No Jobs Found</h1>
-      <p className="no-jobs-description">
-        We could not find any jobs. Try other filters.
-      </p>
-    </div>
-  )
-
-  renderJobsList = () => {
-    const {jobsList} = this.state
-    return (
-      <>
-        {jobsList.length > 0 ? (
-          <ul className="jobs-list">
-            {jobsList.map(eachJob => (
-              <JobCard key={eachJob.id} jobDetails={eachJob} />
-            ))}
-          </ul>
-        ) : (
-          this.renderNoJobsView()
-        )}
-      </>
-    )
-  }
-
-  renderJobsLoaderView = () => (
-    <div className="jobs-loader-container" data-testid="loader">
+  renderLoadingView = () => (
+    <div className="job-item-loader-container" data-testid="loader">
       <Loader type="ThreeDots" color="#ffffff" height="50" width="50" />
     </div>
   )
 
-  renderJobsApiFailureView = () => (
-    <div className="jobs-api-failure-container">
-      <img
-        src="https://assets.ccbp.in/frontend/react-js/failure-img.png"
-        alt="failure view"
-        className="job-api-failure-image"
-      />
-      <h1 className="failure-view-heading">Oops! Something Went Wrong</h1>
-      <p className="failure-view-description">
-        We cannot seem to find the page you are looking for.
-      </p>
-      <button
-        type="button"
-        className="retry-button"
-        onClick={() => this.getJobs()}
-      >
-        Retry
-      </button>
-    </div>
-  )
+  renderJobDetailsView = () => {
+    const {jobData, similarJobsData} = this.state
+    const {
+      companyLogoUrl,
+      companyWebsiteUrl,
+      employmentType,
+      jobDescription,
+      location,
+      packagePerAnnum,
+      rating,
+      title,
+      lifeAtCompany,
+      skills,
+    } = jobData
+    const {description, imageUrl} = lifeAtCompany
+    return (
+      <div className="job-details-view-container">
+        <div className="job-item">
+          <div className="logo-title-location-container">
+            <div className="logo-title-container">
+              <img
+                src={companyLogoUrl}
+                alt="job details company logo"
+                className="company-logo"
+              />
+              <div className="title-rating-container">
+                <h1 className="title-heading">{title}</h1>
+                <div className="rating-container">
+                  <BsStarFill className="rating-icon" />
+                  <p className="rating-heading">{rating}</p>
+                </div>
+              </div>
+            </div>
+            <div className="location-package-container">
+              <div className="location-employee-container">
+                <div className="location-container">
+                  <MdLocationOn className="location-icon" />
+                  <p className="location-heading">{location}</p>
+                </div>
+                <div className="employee-type-container">
+                  <BsFillBriefcaseFill className="brief-case-icon" />
+                  <p className="employee-type-heading">{employmentType}</p>
+                </div>
+              </div>
+              <p className="package-heading">{packagePerAnnum}</p>
+            </div>
+          </div>
+          <hr className="line" />
+          <div className="description-visit-container">
+            <h1 className="description-heading">Description</h1>
+            <div className="visit-container">
+              <a href={companyWebsiteUrl} className="visit-heading">
+                Visit
+              </a>
+              <BiLinkExternal className="visit-icon" />
+            </div>
+          </div>
+          <p className="description-text">{jobDescription}</p>
+          <h1 className="skills-heading">Skills</h1>
+          <ul className="skills-list-container">
+            {skills.map(eachSkill => (
+              <SkillsCard skillDetails={eachSkill} key={eachSkill.name} />
+            ))}
+          </ul>
+          <h1 className="life-at-company-heading">Life at Company</h1>
+          <div className="life-at-company-description-image-container">
+            <p className="life-at-company-description">{description}</p>
+            <img
+              src={imageUrl}
+              alt="life at company"
+              className="life-at-company-image"
+            />
+          </div>
+        </div>
+        <h1 className="similar-jobs-heading">Similar Jobs</h1>
+        <ul className="similar-jobs-list">
+          {similarJobsData.map(eachSimilarJob => (
+            <SimilarJobItem
+              jobDetails={eachSimilarJob}
+              key={eachSimilarJob.id}
+            />
+          ))}
+        </ul>
+      </div>
+    )
+  }
 
-  renderJobsBasedOnAPiStatus = () => {
-    const {jobsApiStatus} = this.state
+  renderJobDetails = () => {
+    const {apiStatus} = this.state
 
-    switch (jobsApiStatus) {
-      case apiStatusConstants.inProgress:
-        return this.renderJobsLoaderView()
+    switch (apiStatus) {
       case apiStatusConstants.success:
-        return this.renderJobsList()
+        return this.renderJobDetailsView()
       case apiStatusConstants.failure:
-        return this.renderJobsApiFailureView()
+        return this.renderFailureView()
+      case apiStatusConstants.inProgress:
+        return this.renderLoadingView()
       default:
         return null
     }
@@ -246,17 +235,13 @@ class Jobs extends Component {
 
   render() {
     return (
-      <div className="jobs-page-container">
+      <>
         <Header />
-        <div className="jobs-page">
-          {this.renderSideBar()}
-          <div className="jobs-container">
-            {this.renderSearchBar('largeSearchBar')}
-            {this.renderJobsBasedOnAPiStatus()}
-          </div>
+        <div className="job-item-details-container">
+          {this.renderJobDetails()}
         </div>
-      </div>
+      </>
     )
   }
 }
-export default Jobs
+export default JobItemDetails
