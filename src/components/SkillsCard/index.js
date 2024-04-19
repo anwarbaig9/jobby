@@ -1,11 +1,14 @@
+// import './index.css';
+
 const SkillsCard = props => {
   const {skillDetails} = props
-  const {imageUrl, name} = skillDetails
+  const {name, imageUrl} = skillDetails
+
   return (
-    <li className="skills-item-container">
-      <div className="skills-container">
+    <li className="skill-list-items">
+      <div className="skill-container">
         <img src={imageUrl} alt={name} className="skill-image" />
-        <p className="skill-name">{name}</p>
+        <p className="image-name">{name}</p>
       </div>
     </li>
   )
